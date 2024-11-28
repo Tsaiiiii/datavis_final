@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="description" content="">
+	<title>D3 Example</title>
+</head>
+<body>
+	<style>  
+		circle {
+		    fill: #8CE600; /* 原始顏色 */
+		    stroke: none;
+		}
+
+		circle.selected_distr {
+		    fill: red; /* 被選中後的顏色 */
+		    /*stroke: black; /* 添加邊框以突出顯示 
+		    stroke-width: 2px;*/
+		}
+		circle.selected_scatter {
+/*		    fill: red; /* 被選中後的顏色 */
+		    stroke: black; /* 添加邊框以突出顯示 */
+		    stroke-width: 2px;
+		}
+	</style>
+	<svg width="2000" height="2000"></svg>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
+
