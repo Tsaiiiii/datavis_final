@@ -28,11 +28,13 @@ Promise.all([
     d3.csv("demogr.csv"),
     d3.csv("cancer.csv"),
     d3.csv("cause.csv"),
-    ]).then(function([mortalityData, demogrData, cancerData, causeData]) {
+    d3.csv("city.csv")
+    ]).then(function([mortalityData, demogrData, cancerData, causeData, cityData]) {
         console.log(mortalityData);
         console.log(demogrData);
         console.log(cancerData);
         console.log(causeData);
+        console.log(cityData);
     
 
         //==============mortality chart=============
@@ -617,29 +619,33 @@ Promise.all([
 
         //==========morality map=================
 
+        let map_svg = d3
+        .select("#map-container")
+        .select("svg")
+        .attr("width", mapWidth + mapMargin.left + mapMargin.right)
+        .attr("height", mapHeight + mapMargin.top + mapMargin.bottom)
+        .style("position", "absolute")
+        .style("left", `${mapLeft}px`)
+        .style("top", `${mapTop}px`);
+
         // Function to update the map based on the selected year
-        function updateMap(selectedYear) {
-            let filteredData = moralityData.filter(d => selectedYears.includes(d.year)); 
-            
-            // total number of deaths from cancer
-            let totalDeaths = d3.sum(filteredData, d => d.death_count_total);
-                    
-            // calculate standardized mortality
+        function updateMap(selectedYears) {
+            let filteredData = cityData.filter(d => selectedYears.includes(d.year));
+
+            // Calculate standardized mortality rates
             let morAgg = d3.rollups(
                 filteredData,
                 v => d3.sum(v, d => d.death_count_total) / d3.sum(v, d => d.population_total) * 100000,
+                d => d.city
             );
-
-            // Set up map dimensions and tooltip
-            const width = mapWidth, height = mapHeight;
-            const svg = d3.select("#map-container")
-                .select("svg"); // Use existing SVG (if already created)
-
+            
+            // Convert data to a lookup map for easier access
+            let mortalityMap = new Map(morAgg);
+            
             const tooltip = d3.select(".tooltip");
 
-            if (svg.empty()) {
-                // If SVG doesn't exist, create it
-                svg = d3.select("#map-container")
+            if (map_svg.empty()) {
+                map_svg = d3.select("#map-container")
                     .append("svg")
                     .attr("width", width)
                     .attr("height", height)
@@ -648,7 +654,7 @@ Promise.all([
 
             // Load Taiwan GeoJSON data
             d3.json("COUNTY_MOI_1130718.json").then(data => {
-                const projection = d3.geoMercator() // Set up projection
+                const projection = d3.geoMercator()
                     .center([121, 24]) // Center on Taiwan
                     .scale(8000) // Zoom scale
                     .translate([width / 2, height / 2]);
@@ -656,8 +662,7 @@ Promise.all([
                 const path = d3.geoPath().projection(projection);
 
                 // Bind GeoJSON data to paths
-                const paths = svg.selectAll("path")
-                    .data(data.features);
+                const paths = map_svg.selectAll("path").data(data.features);
 
                 // Update existing paths
                 paths
@@ -666,20 +671,20 @@ Promise.all([
                     .duration(500)
                     .attr("fill", d => {
                         const city = d.properties.name;
-                        return mortalityData[city] ? "lightblue" : "gray";
+                        return mortalityMap.has(city) ? "lightblue" : "gray";
                     });
 
-                // Add new paths (if necessary)
+                // Add new paths
                 paths.enter()
                     .append("path")
                     .attr("d", path)
                     .attr("fill", d => {
                         const city = d.properties.name;
-                        return mortalityData[city] ? "lightblue" : "gray";
+                        return mortalityMap.has(city) ? "lightblue" : "gray";
                     })
                     .on("mouseover", function (event, d) {
                         const city = d.properties.name;
-                        const mortality = mortalityData[city] || "無數據";
+                        const mortality = mortalityMap.get(city) ? mortalityMap.get(city).toFixed(2) : "無數據";
                         tooltip
                             .style("opacity", 1)
                             .html(`<strong>${city}</strong><br>死亡率: ${mortality}`)
@@ -699,36 +704,6 @@ Promise.all([
                 paths.exit().remove();
             });
         }
-
-        // Helper function to fetch or calculate mortality data for the selected year
-        function fetchMortalityData(selectedYear) {
-            // Replace this with actual logic to retrieve data based on the year
-            const dataByYear = {
-                2020: {
-                    "臺北市": 376,
-                    "高雄市": 426,
-                    "新北市": 320,
-                    "桃園市": 280,
-                    // Add more cities...
-                },
-                2021: {
-                    "臺北市": 390,
-                    "高雄市": 440,
-                    "新北市": 330,
-                    "桃園市": 290,
-                    // Add more cities...
-                },
-                // Add more years...
-            };
-
-            return dataByYear[selectedYear] || {};
-        }
-
-        // Example of using updateMap function
-        d3.select("#year-select").on("change", function () {
-            const selectedYear = this.value;
-            updateMap(selectedYear);
-        });
 
   
     }).catch(function(error) {
