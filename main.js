@@ -1,7 +1,7 @@
-let causeLeft = 0, causeTop = 0;
-let causeMargin = {top: 10, right: 30, bottom: 30, left: 60},
-    causeWidth = 500 - causeMargin.left - causeMargin.right,
-    causeHeight = 260 - causeMargin.top - causeMargin.bottom;
+let causeLeft = 0, causeTop = 5;
+let causeMargin = {top: 15, right: 30, bottom: 30, left: 60},
+    causeWidth = 830 - causeMargin.left - causeMargin.right,
+    causeHeight = 270 - causeMargin.top - causeMargin.bottom;
 
 let mapLeft = 1050, mapTop = 0;
 let mapMargin = {top: 10, right: 30, bottom: 30, left: 60},
@@ -13,7 +13,7 @@ let mortaMargin = {top: 10, right: 30, bottom: 30, left: 60},
     mortaWidth = 680 - mortaMargin.left - mortaMargin.right,
     mortaHeight = 260 - mortaMargin.top - mortaMargin.bottom;
 
-let caLeft = 0, caTop =480;
+let caLeft = 0, caTop = 480;
 let caMargin = {top: 10, right: 30, bottom: 30, left: 60},
     caWidth = 600 - caMargin.left - caMargin.right,
     caHeight = 310 - caMargin.top - caMargin.bottom;
@@ -527,7 +527,7 @@ Promise.all([
         let cau_svg = d3.select("body")
         .append("svg")
         .attr("width", causeWidth + causeMargin.left + causeMargin.right)
-        .attr("height", causeHeight + causeMargin.top + causeMargin.bottom)
+        .attr("height", causeHeight + causeMargin.top + causeMargin.bottom+90)
         .style("position", "absolute")
         .style("left", `${causeLeft}px`)
         .style("top", `${causeTop}px`);
@@ -580,10 +580,18 @@ Promise.all([
                 .attr("transform", `translate(0,${causeHeight - causeMargin.bottom})`)
                 .call(d3.axisBottom(xScale).tickFormat(d => causeNameMap[d] || d))
                 .selectAll("text")
-                .style("text-anchor", "end")
-                .attr("dx", "-0.8em")
-                .attr("dy", "0.15em")
-                .attr("transform", "rotate(-40)");
+                .each(function(d) {
+                    const text = d3.select(this);
+                    const lines = (causeNameMap[d] || d).split(" "); // 使用空格分隔成多行
+                    text.text(null); // 清空原文字
+                    lines.forEach((line, i) => {
+                        text.append("tspan")
+                            .attr("x", 0)
+                            .attr("dy", i === 0 ? "0.5em" : "0.9em") // 第一行保持原位，後續行相對偏移
+                            .text(line);
+                    });
+                });
+
 
             cau_svg.append("g")
                 .attr("transform", `translate(${causeMargin.left},0)`)
