@@ -157,6 +157,7 @@ Promise.all([
             updatePieChart(selectedYears);//update donut pie chart
             updatePopulationPyramid(selectedYears); // update demogr bar chart
             updateBarChart(selectedYears);
+            updateMap(selectedYears);
         }
 
         // ========donut pie chart=================
@@ -538,7 +539,7 @@ Promise.all([
             // calculate standardized mortality
             let causeAgg = d3.rollups(
                 filteredData,
-                v => d3.sum(v, d => d.death_count*1000 / d.population), 
+                v => d3.sum(v, d => d.death_count) / d3.sum(v, d => d.population) * 100000,
                 d => d.cause 
             );
         
@@ -616,40 +617,118 @@ Promise.all([
 
         //==========morality map=================
 
-        let vm = new Vue({
-            el: "#app",
-            data: {
-                taiwanCountry: []
-            },
-            mounted() {
-                fetch('COUNTY_MOI_1130718.json')
-                    .then(res => res.json())
-                    .then(result => {
-                        this.taiwanCountry = result
-                        this.draw(this.taiwanCountry)
-                    })
-            },
-            methods: {
-                draw(mapData) {
+        // Function to update the map based on the selected year
+        function updateMap(selectedYear) {
+            let filteredData = moralityData.filter(d => selectedYears.includes(d.year)); 
+            
+            // total number of deaths from cancer
+            let totalDeaths = d3.sum(filteredData, d => d.death_count_total);
+                    
+            // calculate standardized mortality
+            let morAgg = d3.rollups(
+                filteredData,
+                v => d3.sum(v, d => d.death_count_total) / d3.sum(v, d => d.population_total) * 100000,
+            );
 
-                }
+            // Set up map dimensions and tooltip
+            const width = mapWidth, height = mapHeight;
+            const svg = d3.select("#map-container")
+                .select("svg"); // Use existing SVG (if already created)
+
+            const tooltip = d3.select(".tooltip");
+
+            if (svg.empty()) {
+                // If SVG doesn't exist, create it
+                svg = d3.select("#map-container")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("class", "map");
             }
+
+            // Load Taiwan GeoJSON data
+            d3.json("COUNTY_MOI_1130718.json").then(data => {
+                const projection = d3.geoMercator() // Set up projection
+                    .center([121, 24]) // Center on Taiwan
+                    .scale(8000) // Zoom scale
+                    .translate([width / 2, height / 2]);
+
+                const path = d3.geoPath().projection(projection);
+
+                // Bind GeoJSON data to paths
+                const paths = svg.selectAll("path")
+                    .data(data.features);
+
+                // Update existing paths
+                paths
+                    .attr("d", path)
+                    .transition()
+                    .duration(500)
+                    .attr("fill", d => {
+                        const city = d.properties.name;
+                        return mortalityData[city] ? "lightblue" : "gray";
+                    });
+
+                // Add new paths (if necessary)
+                paths.enter()
+                    .append("path")
+                    .attr("d", path)
+                    .attr("fill", d => {
+                        const city = d.properties.name;
+                        return mortalityData[city] ? "lightblue" : "gray";
+                    })
+                    .on("mouseover", function (event, d) {
+                        const city = d.properties.name;
+                        const mortality = mortalityData[city] || "無數據";
+                        tooltip
+                            .style("opacity", 1)
+                            .html(`<strong>${city}</strong><br>死亡率: ${mortality}`)
+                            .style("left", `${event.pageX + 10}px`)
+                            .style("top", `${event.pageY + 10}px`);
+                    })
+                    .on("mousemove", function (event) {
+                        tooltip
+                            .style("left", `${event.pageX + 10}px`)
+                            .style("top", `${event.pageY + 10}px`);
+                    })
+                    .on("mouseout", function () {
+                        tooltip.style("opacity", 0);
+                    });
+
+                // Remove old paths
+                paths.exit().remove();
+            });
+        }
+
+        // Helper function to fetch or calculate mortality data for the selected year
+        function fetchMortalityData(selectedYear) {
+            // Replace this with actual logic to retrieve data based on the year
+            const dataByYear = {
+                2020: {
+                    "臺北市": 376,
+                    "高雄市": 426,
+                    "新北市": 320,
+                    "桃園市": 280,
+                    // Add more cities...
+                },
+                2021: {
+                    "臺北市": 390,
+                    "高雄市": 440,
+                    "新北市": 330,
+                    "桃園市": 290,
+                    // Add more cities...
+                },
+                // Add more years...
+            };
+
+            return dataByYear[selectedYear] || {};
+        }
+
+        // Example of using updateMap function
+        d3.select("#year-select").on("change", function () {
+            const selectedYear = this.value;
+            updateMap(selectedYear);
         });
-
-        let projection = d3.geoMercator()
-            .center([123, 24])
-            .scale(5500);
-
-        let path = d3.geoPath(projection);
-
-        d3.select('g.counties')
-            .selectAll("path")
-            .data(topojson.feature(mapData, mapData.objects["COUNTY_MOI_1130718.json"]).features)
-            .enter().append("path")
-            .attr("d", path);
-
-        d3.select('path.county-borders')
-            .attr("d", path(topojson.mesh(mapData, mapData.objects["COUNTY_MOI_1130718.json"], function (a, b) { return a !== b; })));
 
   
     }).catch(function(error) {
