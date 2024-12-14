@@ -3,10 +3,10 @@ let causeMargin = {top: 10, right: 30, bottom: 30, left: 60},
     causeWidth = 500 - causeMargin.left - causeMargin.right,
     causeHeight = 260 - causeMargin.top - causeMargin.bottom;
 
-let mapLeft = 880, mapTop = 0;
+let mapLeft = 1050, mapTop = 0;
 let mapMargin = {top: 10, right: 30, bottom: 30, left: 60},
-    mapWidth = 500 - mapMargin.left - mapMargin.right,
-    mapHeight = 260 - mapMargin.top - mapMargin.bottom;
+    mapWidth = 550 - mapMargin.left - mapMargin.right,
+    mapHeight = 480 - mapMargin.top - mapMargin.bottom;
 
 let mortaLeft = 380, mortaTop = 260;
 let mortaMargin = {top: 10, right: 30, bottom: 30, left: 60},
@@ -534,18 +534,15 @@ Promise.all([
 
         function updateBarChart(selectedYears) {
             let filteredData = causeData.filter(d => selectedYears.includes(d.year)); 
-            
-            // total number of deaths from cancer
-            let totalDeaths = d3.sum(filteredData, d => d.death_count);
                     
-            // calculate standardized mortality
+            // calculate mortality (per 100,000 people)
             let causeAgg = d3.rollups(
                 filteredData,
                 v => d3.sum(v, d => d.death_count) / d3.sum(v, d => d.population) * 100000,
                 d => d.cause 
             );
         
-            // top ten cancer type
+            // top ten causes 
             causeAgg.sort((a, b) => b[1] - a[1]);
             let topTenCause = causeAgg.slice(0, 10);
 
@@ -619,14 +616,24 @@ Promise.all([
 
         //==========morality map=================
 
-        let map_svg = d3
-        .select("#map-container")
-        .select("svg")
-        .attr("width", mapWidth + mapMargin.left + mapMargin.right)
-        .attr("height", mapHeight + mapMargin.top + mapMargin.bottom)
-        .style("position", "absolute")
-        .style("left", `${mapLeft}px`)
-        .style("top", `${mapTop}px`);
+        const map_svg = d3.select("#map-container").append("svg")
+            .attr("width", mapWidth + mapMargin.left + mapMargin.right)
+            .attr("height", mapHeight + mapMargin.top + mapMargin.bottom)
+            .style("position", "absolute")
+            .style("left", `${mapLeft}px`)
+            .style("top", `${mapTop}px`);
+
+        const projection = d3.geoMercator()
+            .center([121, 24.5]) // 台灣中心點
+            .scale(5000) // 縮放比例
+            .translate([(mapWidth + mapMargin.left) / 2, (mapHeight + mapMargin.top) / 2]);
+
+        const path = d3.geoPath().projection(projection);
+
+        // 提供顏色比例尺
+        const colorMap = d3.scaleQuantize()
+            .domain([0, 1500]) // 死亡率範圍（根據實際資料調整）
+            .range(d3.schemeOranges[9]);
 
         // Function to update the map based on the selected year
         function updateMap(selectedYears) {
@@ -635,63 +642,71 @@ Promise.all([
             // Calculate standardized mortality rates
             let morAgg = d3.rollups(
                 filteredData,
-                v => d3.sum(v, d => d.death_count_total) / d3.sum(v, d => d.population_total) * 100000,
-                d => d.city
+                v => {
+                    // 計算總死亡率
+                    const totalMortality = d3.sum(v, d => d.death_count_total) / d3.sum(v, d => d.population_total) * 100000;
+
+                    // 計算男性死亡率
+                    const maleMortality = d3.sum(v, d => d.death_count_male) / d3.sum(v, d => d.population_male) * 100000;
+
+                    // 計算女性死亡率
+                    const femaleMortality = d3.sum(v, d => d.death_count_female) / d3.sum(v, d => d.population_female) * 100000;
+
+                    return {
+                        total: totalMortality,
+                        male: maleMortality,
+                        female: femaleMortality
+                    };
+                },
+                d => d.cityeng
             );
             
             // Convert data to a lookup map for easier access
             let mortalityMap = new Map(morAgg);
 
             const tooltip = d3.select(".tooltip");
-            const width = mapWidth + mapMargin.left + mapMargin.right;
-            const height = mapHeight + mapMargin.top + mapMargin.bottom;
-
-            if (map_svg.empty()) {
-                map_svg = d3.select("#map-container")
-                    .append("svg")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .attr("class", "map");
-            }
 
             // Load Taiwan GeoJSON data
             d3.json("COUNTY_MOI_1130718.json").then(data => {
-                const projection = d3.geoMercator()
-                    .center([121, 24]) // Center on Taiwan
-                    .scale(8000) // Zoom scale
-                    .translate([width / 2, height / 2]);
+                // 使用 TopoJSON 轉換為 GeoJSON
+                const geoData = topojson.feature(data, data.objects["COUNTY_MOI_1130718"]);
 
-                const path = d3.geoPath().projection(projection);
+                map_svg.selectAll("path").remove(); // 清空原有地圖
 
-                // Bind GeoJSON data to paths
-                const paths = map_svg.selectAll("path").data(data.features);
+                const paths = map_svg.selectAll("path").data(geoData.features);
 
-                // Update existing paths
-                paths
-                    .attr("d", path)
-                    .transition()
-                    .duration(500)
-                    .attr("fill", d => {
-                        const city = d.properties.name;
-                        return mortalityMap.has(city) ? "lightblue" : "gray";
-                    });
-
-                // Add new paths
                 paths.enter()
                     .append("path")
                     .attr("d", path)
                     .attr("fill", d => {
-                        const city = d.properties.name;
-                        return mortalityMap.has(city) ? "lightblue" : "gray";
+                        const city = d.properties.COUNTYENG;
+                        const mortality = mortalityMap.get(city);
+                        return mortality ? colorMap(mortality.total) : "#ccc"; // 使用總死亡率進行著色
                     })
+                    .attr("stroke", "#333")
                     .on("mouseover", function (event, d) {
-                        const city = d.properties.name;
-                        const mortality = mortalityMap.get(city) ? mortalityMap.get(city).toFixed(2) : "無數據";
-                        tooltip
-                            .style("opacity", 1)
-                            .html(`<strong>${city}</strong><br>死亡率: ${mortality}`)
-                            .style("left", `${event.pageX + 10}px`)
-                            .style("top", `${event.pageY + 10}px`);
+                        const city = d.properties.COUNTYENG;
+                        const mortality = mortalityMap.get(city);
+
+                        // 檢查 mortality 是否存在，避免未找到資料時出錯
+                        if (mortality) {
+                            tooltip
+                                .style("opacity", 1)
+                                .html(`
+                                    <strong>${city}</strong><br>
+                                    Total mortality rate: ${mortality.total.toFixed(2)}<br>
+                                    Male mortality rate: ${mortality.male.toFixed(2)}<br>
+                                    Female mortality rate: ${mortality.female.toFixed(2)}
+                                `)
+                                .style("left", `${event.pageX + 10}px`)
+                                .style("top", `${event.pageY + 10}px`);
+                        } else {
+                            tooltip
+                                .style("opacity", 1)
+                                .html(`<strong>${city}</strong><br>No data available`)
+                                .style("left", `${event.pageX + 10}px`)
+                                .style("top", `${event.pageY + 10}px`);
+                        }
                     })
                     .on("mousemove", function (event) {
                         tooltip
@@ -702,8 +717,6 @@ Promise.all([
                         tooltip.style("opacity", 0);
                     });
 
-                // Remove old paths
-                paths.exit().remove();
             });
         }
 
