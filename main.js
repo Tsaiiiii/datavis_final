@@ -641,8 +641,10 @@ Promise.all([
             
             // Convert data to a lookup map for easier access
             let mortalityMap = new Map(morAgg);
-            
+
             const tooltip = d3.select(".tooltip");
+            const width = mapWidth + mapMargin.left + mapMargin.right;
+            const height = mapHeight + mapMargin.top + mapMargin.bottom;
 
             if (map_svg.empty()) {
                 map_svg = d3.select("#map-container")
