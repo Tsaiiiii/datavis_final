@@ -27,9 +27,11 @@ Promise.all([
     d3.csv("mortality.csv"),
     d3.csv("demogr.csv"),
     d3.csv("cancer.csv"),
-    ]).then(function([mortalityData, demogrData, cancerData]) {
+    d3.csv("cause.csv"),
+    ]).then(function([mortalityData, demogrData, cancerData, causeData]) {
         console.log(mortalityData);
         console.log(demogrData);
+        console.log(cancerData);
         console.log(cancerData);
     
 
@@ -154,7 +156,7 @@ Promise.all([
             
             updatePieChart(selectedYears);//update donut pie chart
             updatePopulationPyramid(selectedYears); // update demogr bar chart
-
+            updateBarChart(selectedYears);
         }
 
         // ========donut pie chart=================
@@ -516,6 +518,104 @@ Promise.all([
             .style("text-anchor", "middle")
             .text("Female");
         }
+
+        //==========causes bar chart=================
+
+        let cau_svg = d3.select("body")
+        .append("svg")
+        .attr("width", causeWidth + causeMargin.left + causeMargin.right)
+        .attr("height", causeHeight + causeMargin.top + causeMargin.bottom)
+        .style("position", "absolute")
+        .style("left", `${causeLeft}px`)
+        .style("top", `${causeTop}px`);
+
+        function updateBarChart(selectedYears) {
+            let filteredData = causeData.filter(d => selectedYears.includes(d.year)); 
+            
+            // total number of deaths from cancer
+            let totalDeaths = d3.sum(filteredData, d => d.death_count);
+                    
+            // calculate standardized mortality
+            let causeAgg = d3.rollups(
+                filteredData,
+                v => d3.sum(v, d => d.death_count*1000 / d.population), 
+                d => d.cause 
+            );
+        
+            // top ten cancer type
+            causeAgg.sort((a, b) => b[1] - a[1]);
+            let topTenCause = causeAgg.slice(0, 10);
+
+            let maxRate = d3.max(topTenCause, d => d[1]);
+
+            cau_svg.selectAll("*").remove(); 
+
+            const causeNameMap = {
+                "mn": "Malignant neoplasm",
+                "hd": "Heart disease (except Hypertension)",
+                "pn": "Pneumonia",
+                "cd": "Cerebrovascular diseases",
+                "dm": "Diabetes mellitus",
+                "co": "COVID-19",
+                "hy": "Hypertension",
+                "ai": "Accident injuries",
+                "clrd": "Chronic lower respiratory diseases",
+                "nnsn": "Nephritis, Nephrotic syndrome and Nephropathy",
+                "cldc": "Chronic liver disease and cirrhosis"
+            };
+        
+            // 設定比例尺
+            let xScale = d3.scaleBand()
+                .domain(topTenCause.map(d => d[0]))
+                .range([causeMargin.left, causeWidth - causeMargin.right])
+                .padding(0.2);
+
+            let yScale = d3.scaleLinear()
+                .domain([0, maxRate])
+                .nice()
+                .range([causeHeight - causeMargin.bottom, causeMargin.top]);
+
+            // 畫柱狀圖
+            cau_svg.append("g")
+                .attr("transform", `translate(0,${causeHeight - causeMargin.bottom})`)
+                .call(d3.axisBottom(xScale).tickFormat(d => cancerNameMap[d] || d))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-0.8em")
+                .attr("dy", "0.15em")
+                .attr("transform", "rotate(-40)");
+
+            cau_svg.append("g")
+                .attr("transform", `translate(${causeMargin.left},0)`)
+                .call(d3.axisLeft(yScale).tickFormat(d3.format(".2f")));
+
+            cau_svg.selectAll(".bar")
+                .data(topTenCause)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", d => xScale(d[0]))
+                .attr("y", d => yScale(d[1]))
+                .attr("width", xScale.bandwidth())
+                .attr("height", d => causeHeight - causeMargin.bottom - yScale(d[1]))
+
+            // 加入標籤
+            cau_svg.selectAll(".label")
+                .data(topTenCause)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => xScale(d[0]) + xScale.bandwidth() / 2)
+                .attr("y", d => yScale(d[1]) - 5)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .style("fill", "#333")
+                .text(d => d3.format(".2f")(d[1]));
+        }
+
+        //==========morality map=================
+
+        
   
     }).catch(function(error) {
         console.log(error);
