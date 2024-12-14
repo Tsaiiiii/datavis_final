@@ -32,7 +32,7 @@ Promise.all([
         console.log(mortalityData);
         console.log(demogrData);
         console.log(cancerData);
-        console.log(cancerData);
+        console.log(causeData);
     
 
         //==============mortality chart=============
@@ -578,7 +578,7 @@ Promise.all([
             // 畫柱狀圖
             cau_svg.append("g")
                 .attr("transform", `translate(0,${causeHeight - causeMargin.bottom})`)
-                .call(d3.axisBottom(xScale).tickFormat(d => cancerNameMap[d] || d))
+                .call(d3.axisBottom(xScale).tickFormat(d => causeNameMap[d] || d))
                 .selectAll("text")
                 .style("text-anchor", "end")
                 .attr("dx", "-0.8em")
