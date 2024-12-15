@@ -631,7 +631,7 @@ Promise.all([
                 .attr("y", d => yScale(d[1]))
                 .attr("width", xScale.bandwidth())
                 .attr("height", d => causeHeight - causeMargin.bottom - yScale(d[1]))
-                .attr("fill", "#f5d176");
+                .attr("fill", "#278f73");
 
             // 加入標籤
             cau_svg.selectAll(".label")
@@ -665,7 +665,7 @@ Promise.all([
 
         // 提供顏色比例尺
         let colorMap = d3.scaleQuantize()
-            .range(d3.schemeOranges[5]);
+            .range(d3.schemeBlues[5]);
 
         // Function to update the map based on the selected year
         function updateMap(selectedYears) {
