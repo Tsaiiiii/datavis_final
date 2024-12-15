@@ -654,7 +654,7 @@ Promise.all([
             .attr("height", mapHeight + mapMargin.top + mapMargin.bottom)
             .style("position", "absolute")
             .style("left", `${mapLeft}px`)
-            .style("top", `${mapTop}px`);
+            .style("top", `${mapTop-30}px`);
 
         const projection = d3.geoMercator()
             .center([121, 24.5]) // 台灣中心點
