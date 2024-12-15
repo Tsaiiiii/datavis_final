@@ -1,4 +1,4 @@
-let causeLeft = 0, causeTop = 5;
+let causeLeft = 10, causeTop = 5;
 let causeMargin = {top: 15, right: 30, bottom: 30, left: 60},
     causeWidth = 830 - causeMargin.left - causeMargin.right,
     causeHeight = 270 - causeMargin.top - causeMargin.bottom;
@@ -592,10 +592,35 @@ Promise.all([
                     });
                 });
 
+            // X軸標籤
+            cau_svg.append("text")
+                .attr("x", causeWidth / 2) // X 軸中央
+                .attr("y", causeHeight + causeMargin.bottom-5) // 稍微向下偏移
+                .attr("text-anchor", "middle") // 置中對齊
+                .style("fill", "#333")
+                .text("Top Ten Causes of Death");
+
+            // X軸標籤
+            cau_svg.append("text")
+                .attr("x", causeWidth-110) // X 軸中央
+                .attr("y", causeMargin.top) // 稍微向下偏移
+                .attr("text-anchor", "middle") // 置中對齊
+                .style("font-size", "12px")
+                .style("fill", "#333")
+                .text("(per Ten Thousand Population)");
 
             cau_svg.append("g")
                 .attr("transform", `translate(${causeMargin.left},0)`)
                 .call(d3.axisLeft(yScale).tickFormat(d3.format(".2f")));
+
+            // Y軸標籤
+            cau_svg.append("text")
+                .attr("transform", `rotate(-90)`) // 文字旋轉90度
+                .attr("x", 0 - (causeHeight / 2)) // Y 軸居中
+                .attr("y", causeMargin.left-45) // 向左偏移，增加與Y軸的距離
+                .attr("text-anchor", "middle") // 文字置中
+                .style("fill", "#333")
+                .text("Mortality Rates");
 
             cau_svg.selectAll(".bar")
                 .data(topTenCause)
@@ -639,9 +664,8 @@ Promise.all([
         const path = d3.geoPath().projection(projection);
 
         // 提供顏色比例尺
-        const colorMap = d3.scaleQuantize()
-            .domain([0, 1500]) // 死亡率範圍（根據實際資料調整）
-            .range(d3.schemeOranges[9]);
+        let colorMap = d3.scaleQuantize()
+            .range(d3.schemeOranges[5]);
 
         // Function to update the map based on the selected year
         function updateMap(selectedYears) {
@@ -671,6 +695,13 @@ Promise.all([
             
             // Convert data to a lookup map for easier access
             let mortalityMap = new Map(morAgg);
+
+            // 計算總死亡率的範圍，並更新 colorMap 的 domain
+            const mortalityRates = Array.from(mortalityMap.values()).map(d => d.total);
+            const maxMortality = d3.max(mortalityRates);
+            const minMortality = d3.min(mortalityRates);
+
+            colorMap.domain([minMortality, maxMortality]);
 
             const tooltip = d3.select(".tooltip");
 
@@ -724,10 +755,60 @@ Promise.all([
                     .on("mouseout", function () {
                         tooltip.style("opacity", 0);
                     });
-
+                // 添加顏色比例尺 (Legend)
+                addColorLegend(minMortality, maxMortality);
             });
         }
 
+        // Function to add color legend
+        function addColorLegend(min, max) {
+            const legendWidth = 150, legendHeight = 20;
+
+            // 移除舊的 Legend 和 defs，避免重複
+            map_svg.select(".legend").remove();
+            map_svg.select("#legend-gradient").remove();
+
+            // 定義漸層填充
+            const defs = map_svg.append("defs");
+            const gradient = defs.append("linearGradient")
+                .attr("id", "legend-gradient")
+                .attr("x1", "0%").attr("y1", "0%")
+                .attr("x2", "100%").attr("y2", "0%");
+
+            gradient.selectAll("stop")
+                .data(colorMap.range().map((color, i, arr) => {
+                    return { offset: `${(i / (arr.length - 1)) * 100}%`, color: color };
+                }))
+                .enter()
+                .append("stop")
+                .attr("offset", d => d.offset)
+                .attr("stop-color", d => d.color);
+
+            // 添加 Legend 群組並定位到左下角
+            const legendGroup = map_svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${mapWidth-425}, ${mapHeight})`); // 調整位置
+
+            // 繪製漸變色矩形
+            legendGroup.append("rect")
+                .attr("width", legendWidth)
+                .attr("height", legendHeight)
+                .style("fill", "url(#legend-gradient)")
+                .attr("stroke", "#ccc");
+
+            // 添加刻度標示
+            const legendScale = d3.scaleLinear()
+                .domain([min, max])
+                .range([0, legendWidth]);
+
+            legendGroup.append("g")
+                .attr("transform", `translate(0, ${legendHeight})`)
+                .call(d3.axisBottom(legendScale)
+                    .ticks(5)
+                    .tickFormat(d3.format(".0f"))
+                )
+                .select(".domain").remove(); // 移除刻度線的邊框
+        }
   
     }).catch(function(error) {
         console.log(error);

@@ -31,3 +31,35 @@ gasc                        Gastric cancer
 esoc		        	    Esophageal cancer
 ovac		         	    Ovarian cancer
 uterc                       Cervical and unspecified uterine cancer
+
+######################################
+
+4.cause.csv
+year                        data year
+cause                       causes of death
+death_count                 number of death
+population                  population
+mn 							Malignant neoplasm
+hd 							Heart disease (except Hypertension)
+pn 							Pneumonia
+cd 							Cerebrovascular diseases
+dm 							Diabetes mellitus
+co 							COVID-19
+hy 							Hypertension
+ai 							Accident injuries
+clrd 						Chronic lower respiratory diseases
+nnsn 						Nephritis, Nephrotic syndrome and Nephropathy
+cldc 						Chronic liver disease and cirrhosis
+
+######################################
+
+5.city.csv
+year                        data year
+city                       	city name
+cityeng						English name of city
+death_count_total           total number of death in city
+death_count_male           	number of death for male in city
+death_count_female          number of death for female in city
+population_total            total population in city
+population_male            	population for male in city
+population_female           population for female in city
