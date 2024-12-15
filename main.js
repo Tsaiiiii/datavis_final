@@ -631,7 +631,7 @@ Promise.all([
                 .attr("y", d => yScale(d[1]))
                 .attr("width", xScale.bandwidth())
                 .attr("height", d => causeHeight - causeMargin.bottom - yScale(d[1]))
-                .attr("fill", "#238067");
+                .attr("fill", "#5a7546");
 
             // 加入標籤
             cau_svg.selectAll(".label")
